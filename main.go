@@ -39,9 +39,8 @@ func (s Stream) String() string {
 	return fmt.Sprintf("Stream<%d %d %s %s %d %s>", s.ID, s.GuildID, s.Guild.Owner, s.URL, s.OwnerID, s.OwnerName)
 }
 
-func main() {
+func initConfig() {
 	var err error
-
 	viper.AutomaticEnv()                            // Any time viper.Get is called, check env
 	viper.SetEnvPrefix("DISCORD_STREAMERS")         // prefix any env variables with this
 	viper.SetConfigType("yaml")                     // configfile is yaml
@@ -53,6 +52,12 @@ func main() {
 	if err != nil {                                 // Handle errors reading the config file
 		panic(fmt.Errorf("fatal error config file: %s", err))
 	}
+}
+
+func main() {
+	var err error
+
+	initConfig()
 
 	db := pg.Connect(&pg.Options{
 		Addr:     viper.GetString("database.addr"),
