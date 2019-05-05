@@ -31,17 +31,17 @@ func (g Guild) String() string {
 
 // Stream contains each streamer on each guild
 type Stream struct {
-	ID                 string
-	GuildID            string
+	ID                 int64
+	GuildID            string `sql:"unique:guild_user"`
 	Guild              *Guild `sql:"composite:guilds"`
 	URL                string
-	OwnerID            string
+	OwnerID            string `sql:"unique:guild_user"`
 	OwnerName          string
 	OwnerDiscriminator string
 }
 
 func (s Stream) String() string {
-	return fmt.Sprintf("Stream<%s %s %s %s %s %s>", s.ID, s.GuildID, s.Guild.Owner, s.URL, s.OwnerID, s.OwnerName)
+	return fmt.Sprintf("Stream<%d %s %s %s %s %s>", s.ID, s.GuildID, s.Guild.Owner, s.URL, s.OwnerID, s.OwnerName)
 }
 
 func init() {
@@ -190,7 +190,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		url := strings.TrimSpace(strings.ToLower(m.Content[len("!addTwitch "):len(m.Content)]))
 
 		_, err := db.Exec(`INSERT INTO streams (guild_id, url, owner_id, owner_name, owner_discriminator) values(?, ?, ?, ?, ?)
-			ON CONFLICT(id)
+			ON CONFLICT(guild_id, owner_id)
 			DO UPDATE SET url=?, owner_id=?, owner_name=?, owner_discriminator=?`,
 			/* insert */
 			m.GuildID,
@@ -226,20 +226,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		s.ChannelMessageSend(m.ChannelID, "Ping!")
 	}
 }
-
-/*
-func saveStream() (err error) {
-	err = db.Insert(&Stream{
-		ID:                 1000,
-		GuildID:            1000,
-		URL:                "blah",
-		OwnerID:            1000,
-		OwnerName:          "halkeye",
-		OwnerDiscriminator: "1337",
-	})
-	return
-}
-*/
 
 func createSchema(db *pg.DB) error {
 	for _, model := range []interface{}{(*Stream)(nil), (*Guild)(nil)} {
