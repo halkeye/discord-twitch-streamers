@@ -25,16 +25,16 @@
         <nav class="col-md-2 d-none d-md-block bg-light sidebar">
           <div class="sidebar-sticky">
             <ul class="nav flex-column">
+              {{range $idx, $guild := .Guilds}}
               <li class="nav-item">
-                <a class="nav-link active" href="#">
-                  Guild 1 <span class="sr-only">(current)</span>
+                <a class="nav-link {{ if eq $idx 1 }}active{{end}}" href="?guild={{ $guild.ID }}">
+                  {{ $guild.Name }}
+                  {{ if eq $idx 1 }}
+                  <span class="sr-only">(current)</span>
+                  {{ end }}
                 </a>
               </li>
-              <li class="nav-item">
-                <a class="nav-link" href="#">
-                  Guild 2
-                </a>
-              </li>
+              {{ end }}
             </ul>
           </div>
         </nav>

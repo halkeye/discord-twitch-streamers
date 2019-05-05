@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -15,7 +17,9 @@ import (
 	"github.com/go-pg/pg"
 	"github.com/go-pg/pg/orm"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 	"github.com/spf13/viper"
+	"golang.org/x/oauth2"
 )
 
 var log = GetLogger()
@@ -39,13 +43,36 @@ func init() {
 	// raven.SetRelease("h3ll0w0rld")
 }
 
-var db *pg.DB
+var (
+	db       *pg.DB
+	oauthCfg *oauth2.Config
+	store    *sessions.CookieStore
+)
+
+const (
+	sessionStoreKey = "sess"
+)
 
 func main() {
 	var err error
 
+	store = sessions.NewCookieStore([]byte(viper.GetString("cookies.secret")))
+	oauthCfg = &oauth2.Config{
+		ClientID:     viper.GetString("discord.client_id"),
+		ClientSecret: viper.GetString("discord.secret_id"),
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  "https://discordapp.com/api/oauth2/authorize",
+			TokenURL: "https://discordapp.com/api/oauth2/token",
+		},
+		RedirectURL: viper.GetString("self_url") + "auth-callback",
+		Scopes:      []string{"guilds", "identify"},
+	}
+
 	r := mux.NewRouter()
 	r.HandleFunc("/", homePageHandler)
+	r.HandleFunc("/start", startHandler)
+	r.HandleFunc("/auth-callback", authCallbackHandler)
+	r.HandleFunc("/destroy-session", sessionDestroyHandler)
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./static/")))
 
 	http.Handle("/", r)
@@ -71,7 +98,7 @@ func main() {
 		panic(err)
 	}
 
-	dg, err := discordgo.New("Bot " + viper.GetString("discord.token"))
+	dg, err := discordgo.New("Bot " + viper.GetString("discord.bot.token"))
 	if err != nil {
 		log.Info("error creating Discord session,", err)
 		return
@@ -95,7 +122,7 @@ func main() {
 	}
 
 	// Wait here until CTRL-C or other term signal is received.
-	log.Notice("https://discordapp.com/api/oauth2/authorize?client_id=" + viper.GetString("discord.client_id") + "&scope=bot&permissions=1")
+	log.Notice("https://discordapp.com/api/oauth2/authorize?client_id=" + viper.GetString("discord.bot.client_id") + "&scope=bot&permissions=1")
 	log.Notice("Bot is now running.  Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
@@ -220,8 +247,42 @@ func createSchema(db *pg.DB) error {
 }
 
 func homePageHandler(w http.ResponseWriter, r *http.Request) {
+	var err error
 	var streams []Stream
-	err := db.Model(&streams).Select()
+
+	// FIXME - move out of parsing every time
+	t := template.Must(template.ParseFiles("./templates/index.tpl"))
+
+	session, err := store.Get(r, sessionStoreKey)
+	if err != nil {
+		log.Info("error getting session,", err)
+		http.Redirect(w, r, "/start", 302)
+		return
+	}
+
+	if _, ok := session.Values["accessToken"]; !ok {
+		log.Info("No session token,")
+		http.Redirect(w, r, "/start", 302)
+	}
+
+	clientDG, err := discordgo.New("Bearer " + session.Values["accessToken"].(string))
+	if err != nil {
+		log.Error("error creating Discord session,", err)
+		http.Redirect(w, r, "/start", 302)
+		return
+	}
+	// Cleanly close down the Discord session.
+	defer clientDG.Close()
+
+	guilds, err := clientDG.UserGuilds(100, "", "")
+	if err != nil {
+		raven.CaptureErrorAndWait(err, nil)
+		fmt.Fprintf(w, "Unable to get guilds")
+		log.Error("getting guilds", err)
+		return
+	}
+
+	err = db.Model(&streams).Select()
 	if err != nil {
 		raven.CaptureErrorAndWait(err, nil)
 		fmt.Fprintf(w, "Unable to get streams")
@@ -229,11 +290,90 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	j, _ := json.Marshal(streams)
-	fmt.Println("streams", string(j))
-	t := template.Must(template.ParseFiles("./templates/index.tpl"))
-	t.Execute(w, map[string]interface{}{
+	data := map[string]interface{}{
 		"Streams": streams,
+		"Guilds":  guilds,
 		"Title":   "there",
-	})
+	}
+	// j, _ := json.Marshal(data)
+	// fmt.Println("data", string(j))
+	err = t.Execute(w, data)
+	if err != nil {
+		raven.CaptureErrorAndWait(err, nil)
+		log.Error("error rendering template", err)
+		return
+	}
+}
+
+func startHandler(w http.ResponseWriter, r *http.Request) {
+	b := make([]byte, 16)
+	rand.Read(b)
+
+	state := base64.URLEncoding.EncodeToString(b)
+
+	session, _ := store.Get(r, sessionStoreKey)
+	session.Values["state"] = state
+	session.Save(r, w)
+
+	url := oauthCfg.AuthCodeURL(state)
+	http.Redirect(w, r, url, 302)
+}
+
+func authCallbackHandler(w http.ResponseWriter, r *http.Request) {
+	session, err := store.Get(r, sessionStoreKey)
+	if err != nil {
+		fmt.Fprintln(w, "aborted")
+		return
+	}
+
+	if r.URL.Query().Get("state") != session.Values["state"] {
+		fmt.Fprintln(w, "no state match; possible csrf OR cookies not enabled")
+		return
+	}
+
+	token, err := oauthCfg.Exchange(oauth2.NoContext, r.URL.Query().Get("code"))
+	if err != nil {
+		fmt.Fprintln(w, "there was an issue getting your token")
+		return
+	}
+
+	if !token.Valid() {
+		fmt.Fprintln(w, "retreived invalid token")
+		return
+	}
+
+	clientDG, err := discordgo.New("Bearer " + token.AccessToken)
+	if err != nil {
+		log.Info("error creating Discord session,", err)
+		return
+	}
+	// Cleanly close down the Discord session.
+	defer clientDG.Close()
+
+	user, err := clientDG.User("@me")
+	if err != nil {
+		log.Error("error getting name", err)
+		fmt.Println(w, "error getting name")
+		return
+	}
+
+	session.Values["userName"] = user.Username
+	session.Values["accessToken"] = token.AccessToken
+	session.Save(r, w)
+
+	http.Redirect(w, r, "/", 302)
+}
+
+func sessionDestroyHandler(w http.ResponseWriter, r *http.Request) {
+	session, err := store.Get(r, sessionStoreKey)
+	if err != nil {
+		fmt.Fprintln(w, "aborted")
+		return
+	}
+
+	session.Options.MaxAge = -1
+
+	session.Save(r, w)
+	http.Redirect(w, r, "/", 302)
+
 }
