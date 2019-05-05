@@ -219,16 +219,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	j, _ := json.Marshal(m)
 	fmt.Println("messageCreate", string(j))
-
-	// If the message is "ping" reply with "Pong!"
-	if m.Content == "ping" {
-		s.ChannelMessageSend(m.ChannelID, "Pong!")
-	}
-
-	// If the message is "pong" reply with "Ping!"
-	if m.Content == "pong" {
-		s.ChannelMessageSend(m.ChannelID, "Ping!")
-	}
 }
 
 func createSchema(db *pg.DB) error {
