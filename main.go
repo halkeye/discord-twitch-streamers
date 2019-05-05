@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
@@ -177,9 +178,38 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	// {"id":"574301262057832479","channel_id":"110893872388825088","guild_id":"110893872388825088","content":"test test","timestamp":"2019-05-04T18:28:10.876000+00:00","edited_timestamp":"","mention_roles":[],"tts":false,"mention_everyone":false,"author":{"id":"105880217595211776","email":"","username":"halkeye","avatar":"26ed135d310388b8985b0b4af91bf9d5","locale":"","discriminator":"1337","token":"","verified":false,"mfa_enabled":false,"bot":false},"attachments":[],"embeds":[],"mentions":[],"reactions":null,"type":0,"webhook_id":""}
 
+	// messageCreate {"id":"574427767161225216","channel_id":"574047051608883214","content":"this is my private message","timestamp":"2019-05-05T02:50:52.043000+00:00","edited_timestamp":"","mention_roles":[],"tts":false,"mention_everyone":false,"author":{"id":"105880217595211776","email":"","username":"halkeye","avatar":"26ed135d310388b8985b0b4af91bf9d5","locale":"","discriminator":"1337","token":"","verified":false,"mfa_enabled":false,"bot":false},"attachments":[],"embeds":[],"mentions":[],"reactions":null,"type":0,"webhook_id":""}
+
 	// Ignore all messages created by the bot itself
 	// This isn't required in this specific example but it's a good practice.
 	if m.Author.ID == s.State.User.ID {
+		return
+	}
+
+	if strings.HasPrefix(strings.ToLower(m.Content), "!addtwitch ") {
+		url := strings.TrimSpace(strings.ToLower(m.Content[len("!addTwitch "):len(m.Content)]))
+
+		_, err := db.Exec(`INSERT INTO streams (guild_id, url, owner_id, owner_name, owner_discriminator) values(?, ?, ?, ?, ?)
+			ON CONFLICT(id)
+			DO UPDATE SET url=?, owner_id=?, owner_name=?, owner_discriminator=?`,
+			/* insert */
+			m.GuildID,
+			url,
+			m.Author.ID,
+			m.Author.Username,
+			m.Author.Discriminator,
+			/* update */
+			url,
+			m.Author.ID,
+			m.Author.Username,
+			m.Author.Discriminator,
+		)
+		if err != nil {
+			raven.CaptureErrorAndWait(err, nil)
+			log.Error("Error saving guild", err)
+		}
+		log.Notice(m.Author.Username, "Added new twitch", url)
+		s.ChannelMessageSend(m.ChannelID, "Added the URL: "+url)
 		return
 	}
 
