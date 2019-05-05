@@ -191,9 +191,15 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			s.ChannelMessageSend(m.ChannelID, "Private messages are not currently supported")
 			return
 		}
-		url := strings.TrimSpace(strings.ToLower(m.Content[len("!addTwitch "):len(m.Content)]))
+		url, err := streamFromText(strings.TrimSpace(m.Content[len("!addTwitch "):len(m.Content)]))
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Error processing text")
+			raven.CaptureErrorAndWait(err, nil)
+			log.Error("Error processing message: "+m.Content, err)
+			return
+		}
 
-		_, err := db.Exec(`INSERT INTO streams (guild_id, url, owner_id, owner_name, owner_discriminator) values(?, ?, ?, ?, ?)
+		_, err = db.Exec(`INSERT INTO streams (guild_id, url, owner_id, owner_name, owner_discriminator) values(?, ?, ?, ?, ?)
 			ON CONFLICT(guild_id, owner_id)
 			DO UPDATE SET url=?, owner_id=?, owner_name=?, owner_discriminator=?`,
 			/* insert */
@@ -211,6 +217,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if err != nil {
 			raven.CaptureErrorAndWait(err, nil)
 			log.Error("Error saving guild", err)
+			return
 		}
 		log.Notice(m.Author.Username, "Added new twitch", url)
 		s.ChannelMessageSend(m.ChannelID, "Added the URL: "+url)
