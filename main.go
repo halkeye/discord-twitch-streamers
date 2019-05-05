@@ -67,6 +67,17 @@ var db *pg.DB
 func main() {
 	var err error
 
+	fs := http.FileServer(http.Dir("static"))
+	http.Handle("/", fs)
+
+	log.Info("Listening...")
+	go func() {
+		err := http.ListenAndServe(":3000", nil)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
 	db = pg.Connect(&pg.Options{
 		Addr:     viper.GetString("database.addr"),
 		User:     viper.GetString("database.user"),
@@ -103,20 +114,14 @@ func main() {
 		return
 	}
 
-	fs := http.FileServer(http.Dir("static"))
-	http.Handle("/", fs)
-
-	log.Info("Listening...")
-	go func() {
-		http.ListenAndServe(":3000", nil)
-	}()
-
 	// Wait here until CTRL-C or other term signal is received.
 	log.Notice("https://discordapp.com/api/oauth2/authorize?client_id=" + viper.GetString("discord.client_id") + "&scope=bot&permissions=1")
 	log.Notice("Bot is now running.  Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
+
+	log.Notice("All done, quitting")
 
 }
 
