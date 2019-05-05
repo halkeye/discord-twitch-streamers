@@ -144,8 +144,11 @@ func guildUpdate(s *discordgo.Session, m *discordgo.GuildUpdate) {
 }
 
 func guildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
-	j, _ := json.Marshal(m)
-	fmt.Println("guildDelete", string(j))
+	_, err := db.Exec(`DELETE FROM guilds WHERE id=?=`, m.ID)
+	if err != nil {
+		raven.CaptureErrorAndWait(err, nil)
+		log.Error("Error saving guild", err)
+	}
 }
 
 func guildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
