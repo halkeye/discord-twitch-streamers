@@ -120,14 +120,12 @@ func main() {
 
 }
 
-func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
-	// j, _ := json.Marshal(m)
-	// fmt.Println("guildCreate", string(j))
-	for _, member := range m.Members {
-		if member.User.ID == m.OwnerID {
+func saveGuild(guild *discordgo.Guild) {
+	for _, member := range guild.Members {
+		if member.User.ID == guild.OwnerID {
 			_, err := db.Exec(`INSERT INTO guilds (id, owner, owner_id) values(?, ?, ?)
 					ON CONFLICT(id)
-					DO UPDATE SET owner_id=?, owner=?`, m.ID, m.OwnerID, member.User.Username, m.OwnerID, member.User.Username)
+					DO UPDATE SET owner_id=?, owner=?`, guild.ID, guild.OwnerID, member.User.Username, guild.OwnerID, member.User.Username)
 			if err != nil {
 				raven.CaptureErrorAndWait(err, nil)
 				log.Error("Error saving guild", err)
@@ -137,9 +135,12 @@ func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
 	}
 }
 
+func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
+	saveGuild(m.Guild)
+}
+
 func guildUpdate(s *discordgo.Session, m *discordgo.GuildUpdate) {
-	j, _ := json.Marshal(m)
-	fmt.Println("guildUpdate", string(j))
+	saveGuild(m.Guild)
 }
 
 func guildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
