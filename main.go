@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,36 +14,11 @@ import (
 	"github.com/getsentry/raven-go"
 	"github.com/go-pg/pg"
 	"github.com/go-pg/pg/orm"
+	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
 )
 
 var log = GetLogger()
-
-// Guild contains all the guilds that have been signed up
-type Guild struct {
-	ID      string
-	Owner   string
-	OwnerID string
-}
-
-func (g Guild) String() string {
-	return fmt.Sprintf("Guild<%s %s>", g.ID, g.Owner)
-}
-
-// Stream contains each streamer on each guild
-type Stream struct {
-	ID                 int64
-	GuildID            string `sql:"unique:guild_user"`
-	Guild              *Guild `sql:"composite:guilds"`
-	URL                string
-	OwnerID            string `sql:"unique:guild_user"`
-	OwnerName          string
-	OwnerDiscriminator string
-}
-
-func (s Stream) String() string {
-	return fmt.Sprintf("Stream<%d %s %s %s %s %s>", s.ID, s.GuildID, s.Guild.Owner, s.URL, s.OwnerID, s.OwnerName)
-}
 
 func init() {
 	var err error
@@ -68,8 +44,11 @@ var db *pg.DB
 func main() {
 	var err error
 
-	fs := http.FileServer(http.Dir("static"))
-	http.Handle("/", fs)
+	r := mux.NewRouter()
+	r.HandleFunc("/", homePageHandler)
+	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./static/")))
+
+	http.Handle("/", r)
 
 	log.Info("Listening...")
 	go func() {
@@ -238,4 +217,29 @@ func createSchema(db *pg.DB) error {
 		}
 	}
 	return nil
+}
+
+func homePageHandler(w http.ResponseWriter, r *http.Request) {
+	var streams []Stream
+	err := db.Model(&streams).Select()
+	if err != nil {
+		raven.CaptureErrorAndWait(err, nil)
+		fmt.Fprintf(w, "Unable to get streams")
+		log.Error("getting streams", err)
+		return
+	}
+
+	j, _ := json.Marshal(streams)
+	fmt.Println("streams", string(j))
+	/*
+		rows, err := db.Exec(`SELECT guild_id, url, owner_id, owner_name, owner_discriminator FROM streams`)
+		for _, row := range rows {
+
+		}
+	*/
+	t := template.Must(template.ParseFiles("./templates/index.tpl"))
+	t.Execute(w, map[string]interface{}{
+		"Streams": streams,
+		"Title":   "there",
+	})
 }
