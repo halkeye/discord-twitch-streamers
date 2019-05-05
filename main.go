@@ -103,43 +103,6 @@ func main() {
 		return
 	}
 
-	guilds, err := dg.UserGuilds(100, "", "")
-	if err != nil {
-		log.Info("Error getting my guilds, ", err)
-		return
-	}
-
-	for _, guild := range guilds {
-		println("Listing users of " + guild.Name)
-		members, err := dg.GuildMembers(guild.ID, "", 100)
-		if err != nil {
-			log.Info("Error getting guild members, ", err)
-			return
-		}
-		for _, member := range members {
-			// data, err := json.Marshal(member)
-			// if err != nil {
-			// 	fmt.Println("Error JSON, ", err)
-			// 	return
-			// }
-			// println(string(data))
-			if member.User.Username == "halkeye" {
-				user, err := dg.User(member.User.ID)
-				if err != nil {
-					log.Info("Error getting user, ", err)
-					return
-				}
-				data, err := json.Marshal(user)
-				if err != nil {
-					log.Info("Error JSON, ", err)
-					return
-				}
-				println(string(data))
-			}
-		}
-
-	}
-
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/", fs)
 
