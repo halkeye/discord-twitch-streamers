@@ -263,6 +263,13 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	if _, ok := session.Values["accessToken"]; !ok {
 		log.Info("No session token,")
 		http.Redirect(w, r, "/start", 302)
+		return
+	}
+
+	if _, ok := session.Values["accessToken"].(string); !ok {
+		log.Info("No session token,")
+		http.Redirect(w, r, "/start", 302)
+		return
 	}
 
 	clientDG, err := discordgo.New("Bearer " + session.Values["accessToken"].(string))
