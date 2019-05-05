@@ -187,6 +187,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	if strings.HasPrefix(strings.ToLower(m.Content), "!addtwitch ") {
+		if m.GuildID == "" {
+			s.ChannelMessageSend(m.ChannelID, "Private messages are not currently supported")
+			return
+		}
 		url := strings.TrimSpace(strings.ToLower(m.Content[len("!addTwitch "):len(m.Content)]))
 
 		_, err := db.Exec(`INSERT INTO streams (guild_id, url, owner_id, owner_name, owner_discriminator) values(?, ?, ?, ?, ?)
