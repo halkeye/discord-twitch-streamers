@@ -231,12 +231,6 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 
 	j, _ := json.Marshal(streams)
 	fmt.Println("streams", string(j))
-	/*
-		rows, err := db.Exec(`SELECT guild_id, url, owner_id, owner_name, owner_discriminator FROM streams`)
-		for _, row := range rows {
-
-		}
-	*/
 	t := template.Must(template.ParseFiles("./templates/index.tpl"))
 	t.Execute(w, map[string]interface{}{
 		"Streams": streams,
