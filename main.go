@@ -9,6 +9,7 @@ import (
 	"strings"
 	"syscall"
 
+	twitch "github.com/Onestay/go-new-twitch"
 	"github.com/bwmarrin/discordgo"
 	"github.com/getsentry/raven-go"
 	"github.com/go-pg/pg"
@@ -178,6 +179,10 @@ func guildMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 // This function will be called (due to AddHandler above) every time a new
 // message is created on any channel that the autenticated bot has access to.
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	var err error
+	var streamUserID string
+	var streamUsername string
+	var streamType StreamType
 
 	// {"id":"574301262057832479","channel_id":"110893872388825088","guild_id":"110893872388825088","content":"test test","timestamp":"2019-05-04T18:28:10.876000+00:00","edited_timestamp":"","mention_roles":[],"tts":false,"mention_everyone":false,"author":{"id":"105880217595211776","email":"","username":"halkeye","avatar":"26ed135d310388b8985b0b4af91bf9d5","locale":"","discriminator":"1337","token":"","verified":false,"mfa_enabled":false,"bot":false},"attachments":[],"embeds":[],"mentions":[],"reactions":null,"type":0,"webhook_id":""}
 
@@ -194,7 +199,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			s.ChannelMessageSend(m.ChannelID, "Private messages are not currently supported")
 			return
 		}
-		url, err := streamFromText(strings.TrimSpace(m.Content[len("!addTwitch "):len(m.Content)]))
+		streamType, streamUsername, err = streamFromText(strings.TrimSpace(m.Content[len("!addTwitch "):len(m.Content)]))
 		if err != nil {
 			s.ChannelMessageSend(m.ChannelID, "Error processing text")
 			raven.CaptureErrorAndWait(err, nil)
@@ -202,28 +207,38 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
-		_, err = db.Exec(`INSERT INTO streams (guild_id, url, owner_id, owner_name, owner_discriminator) values(?, ?, ?, ?, ?)
-			ON CONFLICT(guild_id, owner_id)
-			DO UPDATE SET url=?, owner_id=?, owner_name=?, owner_discriminator=?`,
-			/* insert */
-			m.GuildID,
-			url,
-			m.Author.ID,
-			m.Author.Username,
-			m.Author.Discriminator,
-			/* update */
-			url,
-			m.Author.ID,
-			m.Author.Username,
-			m.Author.Discriminator,
-		)
+		if streamType == StreamTwitch {
+			twitchClient := twitch.NewClient(viper.GetString("twitch.client_id"))
+			twitchUsers, err := twitchClient.GetUsersByLogin(streamUsername)
+			if err != nil {
+				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("User does not exist, or twitch is having errors: %s", err))
+				raven.CaptureErrorAndWait(err, nil)
+				log.Error("Looking up username: "+m.Content, err)
+				return
+			}
+			streamUserID = twitchUsers[0].ID
+		}
+
+		stream := &Stream{
+			GuildID:            m.GuildID,
+			OwnerID:            m.Author.ID,
+			OwnerName:          m.Author.Username,
+			OwnerDiscriminator: m.Author.Discriminator,
+			Type:               streamType,
+			StreamUsername:     streamUsername,
+			StreamUserID:       streamUserID,
+		}
+		j, _ := json.Marshal(stream)
+		fmt.Println("stream", string(j))
+
+		_, err = db.Model(stream).OnConflict("(guild_id, owner_id) DO UPDATE").Set("owner_name=EXCLUDED.owner_name, owner_discriminator=EXCLUDED.owner_discriminator, type=EXCLUDED.type, stream_username=EXCLUDED.stream_username, stream_user_id=EXCLUDED.stream_user_id").Insert()
 		if err != nil {
 			raven.CaptureErrorAndWait(err, nil)
 			log.Error("Error saving guild", err)
 			return
 		}
-		log.Notice(m.Author.Username, "Added new twitch", url)
-		s.ChannelMessageSend(m.ChannelID, "Added the URL: "+url)
+		log.Notice(m.Author.Username, "Added new twitch", stream.URL())
+		s.ChannelMessageSend(m.ChannelID, "Added the URL: "+stream.URL())
 		return
 	}
 

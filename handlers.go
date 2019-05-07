@@ -7,14 +7,19 @@ import (
 	"html/template"
 	"net/http"
 
+	twitch "github.com/Onestay/go-new-twitch"
 	"github.com/bwmarrin/discordgo"
 	"github.com/getsentry/raven-go"
+	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
 )
 
 func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var streams []Stream
+	var guilds []*discordgo.UserGuild
+	var guildIds []string
+	var twitchLogins []string
 
 	// FIXME - move out of parsing every time
 	t := template.Must(template.ParseFiles("./templates/index.tpl"))
@@ -47,13 +52,18 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	// Cleanly close down the Discord session.
 	defer clientDG.Close()
 
-	guilds, err := clientDG.UserGuilds(100, "", "")
+	rawGuilds, err := clientDG.UserGuilds(100, "", "")
 	if err != nil {
 		raven.CaptureErrorAndWait(err, nil)
 		fmt.Fprintf(w, "Unable to get guilds")
 		log.Error("getting guilds", err)
 		return
 	}
+	for _, guild := range rawGuilds {
+		guilds = append(guilds, guild)
+		guildIds = append(guildIds, guild.ID)
+	}
+	// TODO - check to see which guilds we are actually added to
 
 	err = db.Model(&streams).Select()
 	if err != nil {
@@ -63,10 +73,35 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	for _, stream := range streams {
+		twitchLogins = append(twitchLogins, stream.Channel())
+	}
+
+	streams = []Stream{}
+	twitchClient := twitch.NewClient(viper.GetString("twitch.client_id"))
+	twitchStreams, err := twitchClient.GetStreams(twitch.GetStreamsInput{
+		UserLogin: twitchLogins,
+	})
+
+	if len(twitchStreams) > 0 {
+		twitchLogins = []string{}
+		for _, stream := range twitchStreams {
+			twitchLogins = append(twitchLogins, stream.UserID)
+		}
+
+		err = db.Model(&streams).WhereIn("stream_user_id in (?)", twitchLogins).Select()
+		if err != nil {
+			raven.CaptureErrorAndWait(err, nil)
+			fmt.Fprintf(w, "Unable to get streams")
+			log.Error("getting streams", err)
+			return
+		}
+	}
+
 	data := map[string]interface{}{
-		"Streams": streams,
-		"Guilds":  guilds,
-		"Title":   "there",
+		"TwitchStreams": streams,
+		"Guilds":        guilds,
+		"Title":         "there",
 	}
 	// j, _ := json.Marshal(data)
 	// fmt.Println("data", string(j))

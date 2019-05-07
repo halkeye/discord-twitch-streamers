@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func streamFromText(input string) (ret string, err error) {
+func streamFromText(input string) (streamType StreamType, streamUsername string, err error) {
 	input = strings.TrimSpace(input)
 
 	u, err := url.Parse(input)
@@ -18,9 +18,10 @@ func streamFromText(input string) (ret string, err error) {
 			err = errors.New("Url's path doesn't start with a slash")
 			return
 		}
-		ret = "twitch:" + strings.Split(u.Path, "/")[1]
+		streamType = StreamTwitch
+		streamUsername = strings.Split(u.Path, "/")[1]
 		return
 	}
-	ret = "hi"
+	err = errors.New("Unable to handle url type: " + input)
 	return
 }

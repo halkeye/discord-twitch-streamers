@@ -5,19 +5,22 @@ import (
 )
 
 func TestRealUrl(t *testing.T) {
-	items := [][]string{
-		[]string{"http://www.twitch.tv/kaitlyn", "twitch:kaitlyn"},
-		[]string{"https://www.twitch.tv/allyqtea", "twitch:allyqtea"},
-		[]string{"https://twitch.tv/threeternity", "twitch:threeternity"},
+	items := [][]interface{}{
+		[]interface{}{"http://www.twitch.tv/kaitlyn", StreamTwitch, "kaitlyn"},
+		[]interface{}{"https://www.twitch.tv/allyqtea", StreamTwitch, "allyqtea"},
+		[]interface{}{"https://twitch.tv/threeternity", StreamTwitch, "threeternity"},
 	}
 
 	for _, item := range items {
-		got, err := streamFromText(item[0])
+		gotType, gotUsername, err := streamFromText(item[0].(string))
 		if err != nil {
-			t.Errorf("streamFromText(\"%s\") got an error: %s", item[0], err)
+			t.Errorf("streamFromText(\"%s\") got an error: %s", item[0].(string), err)
 		}
-		if got != item[1] {
-			t.Errorf("streamFromText(\"%s\") = %s; want %s", item[0], got, item[1])
+		if gotType != item[1] {
+			t.Errorf("streamFromText(\"%s\") = %s; want %s", item[0].(string), gotType, item[1].(StreamType))
+		}
+		if gotUsername != item[2] {
+			t.Errorf("streamFromText(\"%s\") = %s; want %s", item[0].(string), gotUsername, item[2].(string))
 		}
 	}
 }

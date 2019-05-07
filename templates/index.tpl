@@ -43,9 +43,10 @@
           <h1>Streamers</h1>
           <div class="container">
             <div class="row">
-              {{range $idx, $stream := .Streams}}
+              {{range $idx, $stream := .TwitchStreams}}
               <div class="col">
                 <div id="stream{{ $idx }}"></div>
+                <div><a href="{{ $stream.URL }}">{{ $stream.Channel }}</a></div>
               </div>
               {{end}}
             </div>
@@ -65,11 +66,11 @@
     <script src="https://embed.twitch.tv/embed/v1.js"></script>
     <!-- Create a Twitch.Embed object that will render within the "twitch-embed" root element. -->
     <script type="text/javascript">
-      {{range $idx, $stream := .Streams}}
+      {{range $idx, $stream := .TwitchStreams}}
       new Twitch.Embed("stream{{ $idx}}", {
         width: 427,
         height: 240,
-        channel: {{ $stream.Channel }},
+        channel: "{{ $stream.Channel }}",
         layout: "video"
       });
       {{end}}
