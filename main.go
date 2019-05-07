@@ -120,7 +120,6 @@ func main() {
 	}
 
 	// Wait here until CTRL-C or other term signal is received.
-	log.Notice("https://discordapp.com/api/oauth2/authorize?client_id=" + viper.GetString("discord.bot.client_id") + "&scope=bot&permissions=1")
 	log.Notice("Bot is now running.  Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)

@@ -36,6 +36,12 @@
               </li>
               {{ end }}
             </ul>
+            <div class="dropdown-divider"></div>
+            <p>
+              Don't see your server?
+              <br />
+              <a href="{{ .BotAddURL }}">Add the bot</a>
+            </p>
           </div>
         </nav>
 

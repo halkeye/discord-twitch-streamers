@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 
 	twitch "github.com/Onestay/go-new-twitch"
 	"github.com/bwmarrin/discordgo"
@@ -105,6 +106,7 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{
+		"BotAddURL":     "https://discordapp.com/api/oauth2/authorize?client_id=" + viper.GetString("discord.client_id") + "&scope=bot&redirect_uri=" + url.QueryEscape(viper.GetString("self_url")),
 		"TwitchStreams": streams,
 		"Guilds":        guilds,
 		"Title":         "there",
