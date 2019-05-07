@@ -14,6 +14,25 @@ import (
 	"golang.org/x/oauth2"
 )
 
+func getDiscordAccessTokenFromSession(r *http.Request) string {
+	session, err := store.Get(r, sessionStoreKey)
+	if err != nil {
+		log.Info("error getting session,", err)
+		return ""
+	}
+
+	if _, ok := session.Values["accessToken"]; !ok {
+		log.Info("No session token,")
+		return ""
+	}
+
+	if _, ok := session.Values["accessToken"].(string); !ok {
+		log.Info("No session token,")
+		return ""
+	}
+	return session.Values["accessToken"].(string)
+}
+
 func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var streams []Stream
@@ -24,26 +43,13 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	// FIXME - move out of parsing every time
 	t := template.Must(template.ParseFiles("./templates/index.tpl"))
 
-	session, err := store.Get(r, sessionStoreKey)
-	if err != nil {
-		log.Info("error getting session,", err)
+	accessToken := getDiscordAccessTokenFromSession(r)
+	if accessToken == "" {
 		http.Redirect(w, r, "/start", 302)
 		return
 	}
 
-	if _, ok := session.Values["accessToken"]; !ok {
-		log.Info("No session token,")
-		http.Redirect(w, r, "/start", 302)
-		return
-	}
-
-	if _, ok := session.Values["accessToken"].(string); !ok {
-		log.Info("No session token,")
-		http.Redirect(w, r, "/start", 302)
-		return
-	}
-
-	clientDG, err := discordgo.New("Bearer " + session.Values["accessToken"].(string))
+	clientDG, err := discordgo.New("Bearer " + accessToken)
 	if err != nil {
 		log.Error("error creating Discord session,", err)
 		http.Redirect(w, r, "/start", 302)
