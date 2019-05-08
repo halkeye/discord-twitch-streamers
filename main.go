@@ -68,10 +68,10 @@ func main() {
 	}
 
 	r := mux.NewRouter()
-	r.HandleFunc("/", homePageHandler)
-	r.HandleFunc("/start", startHandler)
-	r.HandleFunc("/auth-callback", authCallbackHandler)
-	r.HandleFunc("/destroy-session", sessionDestroyHandler)
+	r.HandleFunc("/", raven.RecoveryHandler(homePageHandler))
+	r.HandleFunc("/start", raven.RecoveryHandler(startHandler))
+	r.HandleFunc("/auth-callback", raven.RecoveryHandler(authCallbackHandler))
+	r.HandleFunc("/destroy-session", raven.RecoveryHandler(sessionDestroyHandler))
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./static/")))
 
 	http.Handle("/", r)
@@ -80,6 +80,7 @@ func main() {
 	go func() {
 		err := http.ListenAndServe(":3000", nil)
 		if err != nil {
+			raven.CaptureErrorAndWait(err, nil)
 			panic(err)
 		}
 	}()
@@ -94,12 +95,14 @@ func main() {
 
 	err = createSchema(db)
 	if err != nil {
+		raven.CaptureErrorAndWait(err, nil)
 		panic(err)
 	}
 
 	dg, err := discordgo.New("Bot " + viper.GetString("discord.bot.token"))
 	if err != nil {
 		log.Info("error creating Discord session,", err)
+		raven.CaptureErrorAndWait(err, nil)
 		return
 	}
 	// Cleanly close down the Discord session.
@@ -117,6 +120,7 @@ func main() {
 	err = dg.Open()
 	if err != nil {
 		log.Info("error opening connection,", err)
+		raven.CaptureErrorAndWait(err, nil)
 		return
 	}
 
