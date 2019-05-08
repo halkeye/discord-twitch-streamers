@@ -20,13 +20,21 @@ pipeline {
     }
     stage('Deploy') {
       when { branch 'master' }
-      // when { buildingTag() }
-      environment {
-        DOCKER = credentials('dockerhub-halkeye')
-      }
+      environment { DOCKER = credentials('dockerhub-halkeye') }
       steps {
         sh 'docker login --username="$DOCKER_USR" --password="$DOCKER_PSW"'
+        sh "docker tag halkeye/discord-twitch-streamers halkeye/discord-twitch-streamers:master"
+        sh 'docker push halkeye/discord-twitch-streamers:master'
         sh 'docker push halkeye/discord-twitch-streamers'
+      }
+    }
+    stage('Deploy') {
+      when { buildingTag() }
+      environment { DOCKER = credentials('dockerhub-halkeye') }
+      steps {
+        sh 'docker login --username="$DOCKER_USR" --password="$DOCKER_PSW"'
+        sh "docker tag halkeye/discord-twitch-streamers halkeye/discord-twitch-streamers:${TAG_NAME}"
+        sh "docker push halkeye/discord-twitch-streamers:${TAG_NAME}"
       }
     }
   }

@@ -51,6 +51,7 @@ func init() {
 
 func main() {
 	var err error
+	log.Notice("Version: " + Version + ", GitCommit: " + GitCommit + ", GitState: " + GitState + ", BuildDate: " + BuildDate)
 
 	store = sessions.NewCookieStore([]byte(viper.GetString("cookies.secret")))
 	oauthCfg = &oauth2.Config{
