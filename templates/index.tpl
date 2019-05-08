@@ -54,6 +54,16 @@
                 <div id="stream{{ $idx }}"></div>
                 <div><a href="{{ $stream.URL }}">{{ $stream.Channel }}</a></div>
               </div>
+              {{ else }}
+              <p>
+                None of the streamers for this server are active.
+                <br />
+                Couldn't find your stream?
+                <br />
+                Make sure you've added it by running the following command in discord
+                <br />
+                <kbd>!addTwitch https://www.twitch.tv/yourusername</kbd>
+              </p>
               {{end}}
             </div>
           </div>
