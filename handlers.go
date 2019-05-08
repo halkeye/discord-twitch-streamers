@@ -47,6 +47,15 @@ func init() {
 	}
 }
 
+func validateGuildSelection(guilds []*discordgo.UserGuild, selectedGuildID string) error {
+	for _, guild := range guilds {
+		if guild.ID == selectedGuildID {
+			return nil
+		}
+	}
+	return fmt.Errorf("Selected a guildID that is not allowed")
+}
+
 func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var streams []Stream
@@ -84,6 +93,15 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	selectedGuildID = r.URL.Query().Get("guild")
 	if selectedGuildID == "" && len(guilds) > 0 {
 		selectedGuildID = guilds[0].ID
+	}
+	if selectedGuildID != "" {
+		err = validateGuildSelection(guilds, selectedGuildID)
+		if err != nil {
+			raven.CaptureErrorAndWait(err, nil)
+			log.Error("Invalid guild for user", err)
+			http.Redirect(w, r, "/", 302)
+			return
+		}
 	}
 
 	err = db.Model(&streams).Where("guild_id=?", selectedGuildID).Select()
