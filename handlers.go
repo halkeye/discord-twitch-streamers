@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"html/template"
 	"net/http"
 	"net/url"
 
@@ -32,19 +31,6 @@ func getDiscordAccessTokenFromSession(r *http.Request) string {
 		return ""
 	}
 	return session.Values["accessToken"].(string)
-}
-
-var indexTemplate *template.Template
-
-func init() {
-	var err error
-
-	indexTemplate, err = template.ParseFiles("./templates/index.tpl")
-	if err != nil {
-		raven.CaptureErrorAndWait(err, nil)
-		log.Error("Error trying to process template", err)
-		panic(err)
-	}
 }
 
 func validateGuildSelection(guilds []*discordgo.UserGuild, selectedGuildID string) error {

@@ -1,3 +1,11 @@
+package main
+
+import (
+	"html/template"
+)
+
+var (
+	indexTemplate = template.Must(template.New("htmlTemplate").Parse(`
 {{ $SelectedGuildID := .SelectedGuildID }}
 <!doctype html>
 <html lang="en">
@@ -93,4 +101,5 @@
       {{end}}
     </script>
   </body>
-</html>
+</html>`))
+)
