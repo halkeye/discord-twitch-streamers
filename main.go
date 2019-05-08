@@ -21,9 +21,20 @@ import (
 )
 
 var log = GetLogger()
+var (
+	db        *pg.DB
+	oauthCfg  *oauth2.Config
+	store     *sessions.CookieStore
+	allGuilds map[string]*Guild
+)
+
+const (
+	sessionStoreKey = "sess"
+)
 
 func init() {
 	var err error
+	allGuilds = map[string]*Guild{}
 	viper.AutomaticEnv()                            // Any time viper.Get is called, check env
 	viper.SetEnvPrefix("DISCORD_STREAMERS")         // prefix any env variables with this
 	viper.SetConfigType("yaml")                     // configfile is yaml
@@ -40,16 +51,6 @@ func init() {
 	// raven.SetEnvironment("staging")
 	// raven.SetRelease("h3ll0w0rld")
 }
-
-var (
-	db       *pg.DB
-	oauthCfg *oauth2.Config
-	store    *sessions.CookieStore
-)
-
-const (
-	sessionStoreKey = "sess"
-)
 
 func main() {
 	var err error
@@ -132,9 +133,13 @@ func main() {
 func saveGuild(guild *discordgo.Guild) {
 	for _, member := range guild.Members {
 		if member.User.ID == guild.OwnerID {
-			_, err := db.Exec(`INSERT INTO guilds (id, owner, owner_id) values(?, ?, ?)
-					ON CONFLICT(id)
-					DO UPDATE SET owner_id=?, owner=?`, guild.ID, guild.OwnerID, member.User.Username, guild.OwnerID, member.User.Username)
+			guild := &Guild{
+				ID:      guild.ID,
+				Owner:   member.User.Username,
+				OwnerID: guild.OwnerID,
+			}
+			allGuilds[guild.ID] = guild
+			_, err := db.Model(guild).OnConflict("(id) DO UPDATE").Set("owner=EXCLUDED.owner, owner_id=EXCLUDED.owner_id").Insert()
 			if err != nil {
 				raven.CaptureErrorAndWait(err, nil)
 				log.Error("Error saving guild", err)
@@ -153,6 +158,7 @@ func guildUpdate(s *discordgo.Session, m *discordgo.GuildUpdate) {
 }
 
 func guildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
+	delete(allGuilds, m.Guild.ID)
 	_, err := db.Exec(`DELETE FROM guilds WHERE id=?=`, m.ID)
 	if err != nil {
 		raven.CaptureErrorAndWait(err, nil)
