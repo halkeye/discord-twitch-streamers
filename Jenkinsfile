@@ -39,4 +39,5 @@ pipeline {
         subject: "[JENKINS] ${env.JOB_NAME} failed",
       )
     }
+  }
 }
