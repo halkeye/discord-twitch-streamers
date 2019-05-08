@@ -35,7 +35,7 @@ pipeline {
       emailext(
         attachLog: true,
         recipientProviders: [developers()],
-        body: "Build failed (see ${env.BUILD_URL}): ${err}",
+        body: "Build failed (see ${env.BUILD_URL})",
         subject: "[JENKINS] ${env.JOB_NAME} failed",
       )
     }

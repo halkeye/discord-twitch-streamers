@@ -15,7 +15,7 @@ FROM busybox:1.30
 
 # Retrieve the binary from the previous stage
 COPY --from=builder /usr/bin/discord-twitch-streamers /usr/local/bin/discord-twitch-streamers
-COPY --from=builder /usr/bin/discord-twitch-streamers/static /usr/local/bin/discord-twitch-streamers/static
+COPY ./static /usr/local/bin/static
 
 # Set the binary as the entrypoint of the container
 ENTRYPOINT [ "discord-twitch-streamers" ]
