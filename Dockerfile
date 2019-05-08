@@ -5,10 +5,10 @@ RUN apk add --no-cache git
 WORKDIR /go/src/github.com/halkeye/discord-twitch-streamers
 COPY . .
 RUN set -ex && \
+  go get github.com/ahmetb/govvv && \
   go get ./... && \
   GOOS=linux CGO_ENABLED=0 go build \
-        -v -a \
-        -ldflags '-extldflags "-static"' && \
+        -v -a -ldflags="-extldflags -static $(govvv -flags)" && \
   mv ./discord-twitch-streamers /usr/bin/
 
 #FROM scratch

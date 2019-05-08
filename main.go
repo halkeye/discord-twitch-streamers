@@ -31,6 +31,8 @@ const (
 
 func init() {
 	var err error
+	log.Notice("Version: " + Version + ", GitCommit: " + GitCommit + ", GitState: " + GitState + ", BuildDate: " + BuildDate)
+
 	allGuilds = map[string]*Guild{}
 	viper.AutomaticEnv()                            // Any time viper.Get is called, check env
 	viper.SetEnvPrefix("DISCORD_STREAMERS")         // prefix any env variables with this
@@ -51,7 +53,6 @@ func init() {
 
 func main() {
 	var err error
-	log.Notice("Version: " + Version + ", GitCommit: " + GitCommit + ", GitState: " + GitState + ", BuildDate: " + BuildDate)
 
 	store = sessions.NewCookieStore([]byte(viper.GetString("cookies.secret")))
 	oauthCfg = &oauth2.Config{
