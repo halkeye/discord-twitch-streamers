@@ -11,7 +11,9 @@ RUN set -ex && \
         -ldflags '-extldflags "-static"' && \
   mv ./discord-twitch-streamers /usr/bin/
 
-FROM scratch
+#FROM scratch
+#FROM busybox:1.30
+FROM alpine:latest
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 # Retrieve the binary from the previous stage
 COPY --from=builder /usr/bin/discord-twitch-streamers /usr/local/bin/discord-twitch-streamers
