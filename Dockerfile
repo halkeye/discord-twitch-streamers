@@ -13,11 +13,11 @@ RUN set -ex && \
 
 #FROM scratch
 #FROM busybox:1.30
-FROM alpine:latest
+FROM alpine:3.9
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-# Retrieve the binary from the previous stage
-COPY --from=builder /usr/bin/discord-twitch-streamers /usr/local/bin/discord-twitch-streamers
-COPY ./static /usr/local/bin/static
+WORKDIR /app
+COPY --from=builder /usr/bin/discord-twitch-streamers /app/discord-twitch-streamers
+COPY ./static /app/static
 
 # Set the binary as the entrypoint of the container
-ENTRYPOINT [ "discord-twitch-streamers" ]
+ENTRYPOINT [ "/app/discord-twitch-streamers" ]
