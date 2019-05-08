@@ -1,3 +1,4 @@
+{{ $SelectedGuildID := .SelectedGuildID }}
 <!doctype html>
 <html lang="en">
   <head>
@@ -27,9 +28,9 @@
             <ul class="nav flex-column">
               {{range $idx, $guild := .Guilds}}
               <li class="nav-item">
-                <a class="nav-link {{ if eq $idx 1 }}active{{end}}" href="?guild={{ $guild.ID }}">
+                <a class="nav-link {{ if eq $guild.ID $SelectedGuildID }}active{{end}}" href="?guild={{ $guild.ID }}">
                   {{ $guild.Name }}
-                  {{ if eq $idx 1 }}
+                  {{ if eq $guild.ID $SelectedGuildID }}
                   <span class="sr-only">(current)</span>
                   {{ end }}
                 </a>

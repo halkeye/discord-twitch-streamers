@@ -34,15 +34,25 @@ func getDiscordAccessTokenFromSession(r *http.Request) string {
 	return session.Values["accessToken"].(string)
 }
 
+var indexTemplate *template.Template
+
+func init() {
+	var err error
+
+	indexTemplate, err = template.ParseFiles("./templates/index.tpl")
+	if err != nil {
+		raven.CaptureErrorAndWait(err, nil)
+		log.Error("Error trying to process template", err)
+		panic(err)
+	}
+}
+
 func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var streams []Stream
 	var guilds []*discordgo.UserGuild
-	var guildIds []string
+	var selectedGuildID string
 	var twitchLogins []string
-
-	// FIXME - move out of parsing every time
-	t := template.Must(template.ParseFiles("./templates/index.tpl"))
 
 	accessToken := getDiscordAccessTokenFromSession(r)
 	if accessToken == "" {
@@ -67,12 +77,16 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, guild := range rawGuilds {
-		guilds = append(guilds, guild)
-		guildIds = append(guildIds, guild.ID)
+		if _, ok := allGuilds[guild.ID]; ok {
+			guilds = append(guilds, guild)
+		}
 	}
-	// TODO - check to see which guilds we are actually added to
+	selectedGuildID = r.URL.Query().Get("guild")
+	if selectedGuildID == "" && len(guilds) > 0 {
+		selectedGuildID = guilds[0].ID
+	}
 
-	err = db.Model(&streams).Select()
+	err = db.Model(&streams).Where("guild_id=?", selectedGuildID).Select()
 	if err != nil {
 		raven.CaptureErrorAndWait(err, nil)
 		fmt.Fprintf(w, "Unable to get streams")
@@ -106,14 +120,15 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{
-		"BotAddURL":     "https://discordapp.com/api/oauth2/authorize?client_id=" + viper.GetString("discord.client_id") + "&scope=bot&redirect_uri=" + url.QueryEscape(viper.GetString("self_url")),
-		"TwitchStreams": streams,
-		"Guilds":        guilds,
-		"Title":         "there",
+		"SelectedGuildID": selectedGuildID,
+		"BotAddURL":       "https://discordapp.com/api/oauth2/authorize?client_id=" + viper.GetString("discord.client_id") + "&scope=bot&redirect_uri=" + url.QueryEscape(viper.GetString("self_url")),
+		"TwitchStreams":   streams,
+		"Guilds":          guilds,
+		"Title":           "there",
 	}
 	// j, _ := json.Marshal(data)
 	// fmt.Println("data", string(j))
-	err = t.Execute(w, data)
+	err = indexTemplate.Execute(w, data)
 	if err != nil {
 		raven.CaptureErrorAndWait(err, nil)
 		log.Error("error rendering template", err)
