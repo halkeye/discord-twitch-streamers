@@ -72,6 +72,7 @@ func main() {
 	r.HandleFunc("/start", raven.RecoveryHandler(startHandler))
 	r.HandleFunc("/auth-callback", raven.RecoveryHandler(authCallbackHandler))
 	r.HandleFunc("/destroy-session", raven.RecoveryHandler(sessionDestroyHandler))
+	r.Handle("/healthcheck", healthcheckHandler())
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./static/")))
 
 	http.Handle("/", r)
