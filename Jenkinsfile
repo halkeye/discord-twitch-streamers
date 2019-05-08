@@ -18,7 +18,7 @@ pipeline {
         }
       }
     }
-    stage('Deploy') {
+    stage('Deploy master') {
       when { branch 'master' }
       environment { DOCKER = credentials('dockerhub-halkeye') }
       steps {
@@ -28,7 +28,7 @@ pipeline {
         sh 'docker push halkeye/discord-twitch-streamers'
       }
     }
-    stage('Deploy') {
+    stage('Deploy release') {
       when { buildingTag() }
       environment { DOCKER = credentials('dockerhub-halkeye') }
       steps {
